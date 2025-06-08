@@ -1,10 +1,43 @@
-#include <chrono>
-#include <fstream>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <nlohmann/json.hpp>
 using json = nlohmann::ordered_json;
 
-int upId   = 1000;
+std::string getSavePath()
+{
+        std::filesystem::path dataPath;
+
+#ifdef _WIN32
+        char*  appdata = nullptr;
+        size_t len;
+        _dupenv_s(&appdata, &len, "APPDATA");
+        if (appdata != nullptr) {
+                dataPath = appdata;
+                free(appdata);
+        }
+#else
+        char*  home = nullptr;
+        size_t len;
+        _dupenv_s(&home, &len, "HOME");
+        if (home != nullptr) {
+                dataPath = home;
+                free(home);
+        }
+#endif
+
+        if (!dataPath.empty()) {
+                std::filesystem::path appFolder = dataPath / "ctask";
+                std::filesystem::create_directories(appFolder);
+                return (appFolder / "tasks.json").string();
+        }
+
+        return "tasks.json";
+}
+
+#include <chrono>
+
+int upId = 1000;
 struct Task
 {
         int         id{};
@@ -29,11 +62,6 @@ struct Task
                 auto        time_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
                 std::string now_c  = std::ctime(&time_t);
                 return now_c.substr(0, now_c.length() - 1);
-        }
-
-        void updateTime()
-        {
-                lastUpdate = currentTime();
         }
 };
 
@@ -61,24 +89,10 @@ void from_json(const json& j, Task& t)
         }
 }
 
+#include <fstream>
+
 void loadHighestId()
 {
-        std::ifstream loadId("./tasks.json");
-        if (loadId.is_open()) {
-                json j;
-                loadId >> j;
-                for (const auto& task : j) {
-                        if (task.contains("id") && task["id"].is_number_integer()) {
-                                int id = task["id"].get<int>();
-                                if (id > upId) {
-                                        upId = id;
-                                }
-                        }
-                }
-        } else {
-                std::cerr << "Failed to open \"tasks.json\"!";
-        }
-        loadId.close();
 }
 
 /*
@@ -88,6 +102,8 @@ tasks.json array = [{object1}, {object2}, {object3}, ...]
 
 int main(int argc, char** argv)
 {
+        const std::string save_path = getSavePath();
+
         if (argc == 1) {
                 std::cout << "Type \"ctask -h / --help\" to show list of available arguments\n";
                 return 0;
@@ -99,40 +115,43 @@ int main(int argc, char** argv)
                         if (i + 1 < argc) {
                                 std::string description = argv[i + 1];
                                 if (description == "-l" || description == "--long") {
-                                        std::cout
-                                            << "ctask by shuretokki\n\n"
-                                            << "This program manages tasks stored in 'tasks.json'.\n"
-                                            << "Each task has an ID, description, status, creation time, and last "
-                                               "update time.\n\n"
-                                            << "Commands:\n"
-                                            << "  -h, --help\n"
-                                            << "    Displays a concise list of available commands.\n"
-                                            << "    Example: ctask -h\n\n"
-                                            << "  --help --long\n"
-                                            << "    Shows this detailed help message with examples.\n"
-                                            << "    Example: ctask --help --long\n\n"
-                                            << "  -v, --version\n"
-                                            << "    Displays the program version and build information.\n"
-                                            << "    Example: ctask -v\n\n"
-                                            << "  add <description>\n"
-                                            << "    Creates a new task with the given description and 'To-do' status.\n"
-                                            << "    Example: ctask add \"Write report\"\n\n"
-                                            << "  update <id> <description>\n"
-                                            << "    Updates the description of the task with the specified ID.\n"
-                                            << "    Example: ctask update 1001 \"Revise report\"\n\n"
-                                            << "  delete <id>\n"
-                                            << "    Deletes the task with the specified ID.\n"
-                                            << "    Example: ctask delete 1001\n\n"
-                                            << "  mark-in-progress <id>\n"
-                                            << "    Marks the task with the specified ID as 'In progress'.\n"
-                                            << "    Example: ctask mark-in-progress 1001\n\n"
-                                            << "  done <id>\n"
-                                            << "    Marks the task with the specified ID as 'Done'.\n"
-                                            << "    Example: ctask done 1001\n\n"
-                                            << "  list [status]\n"
-                                            << "    Lists all tasks or filters by status (todo, in-progress, done).\n"
-                                            << "    Example: ctask list\n"
-                                            << "    Example: ctask list done\n";
+                                        std::cout << "ctask by shuretokki\n\n"
+                                                  << "This program manages tasks stored in 'tasks.json'.\n"
+                                                  << "Each task has an ID, description, status, creation time, and "
+                                                     "last "
+                                                     "update time.\n\n"
+                                                  << "Commands:\n"
+                                                  << "  -h, --help\n"
+                                                  << "    Displays a concise list of available commands.\n"
+                                                  << "    Example: ctask -h\n\n"
+                                                  << "  --help --long\n"
+                                                  << "    Shows this detailed help message with examples.\n"
+                                                  << "    Example: ctask --help --long\n\n"
+                                                  << "  -v, --version\n"
+                                                  << "    Displays the program version and build information.\n"
+                                                  << "    Example: ctask -v\n\n"
+                                                  << "  add <description>\n"
+                                                  << "    Creates a new task with the given description and 'To-do' "
+                                                     "status.\n"
+                                                  << "    Example: ctask add \"Write report\"\n\n"
+                                                  << "  update <id> <description>\n"
+                                                  << "    Updates the description of the task with the specified "
+                                                     "ID.\n"
+                                                  << "    Example: ctask update 1001 \"Revise report\"\n\n"
+                                                  << "  delete <id>\n"
+                                                  << "    Deletes the task with the specified ID.\n"
+                                                  << "    Example: ctask delete 1001\n\n"
+                                                  << "  mark-in-progress <id>\n"
+                                                  << "    Marks the task with the specified ID as 'In progress'.\n"
+                                                  << "    Example: ctask mark-in-progress 1001\n\n"
+                                                  << "  done <id>\n"
+                                                  << "    Marks the task with the specified ID as 'Done'.\n"
+                                                  << "    Example: ctask done 1001\n\n"
+                                                  << "  list [status]\n"
+                                                  << "    Lists all tasks or filters by status (todo, in-progress, "
+                                                     "done).\n"
+                                                  << "    Example: ctask list\n"
+                                                  << "    Example: ctask list done\n";
                                         return 0;
                                 } else {
                                         std::cout << "Invalid argument after " << arg << ':' << description << '\n';
@@ -159,28 +178,37 @@ int main(int argc, char** argv)
                                 std::cout << "Invalid arguments!\n";
                                 return 1;
                         } else {
-                                std::cout
-                                    << "[ctask]\n"
-                                    << "Version: 1.0.0\n"
-                                    << "Build: 2025-06-09\n"
-                                    << "Author: shuretokki\n"
-                                    << "Description: A simple CLI tool for managing tasks stored in JSON format.\n";
+                                std::cout << "[ctask]\n"
+                                          << "Version: 1.0.0\n"
+                                          << "Build: 2025-06-09\n"
+                                          << "Author: shuretokki\n"
+                                          << "Description: A simple CLI tool for managing tasks stored in JSON "
+                                             "format.\n";
                                 return 0;
                         }
                 } else if (arg == "add") {
-                        loadHighestId();
 
-                        json          j;
-                        std::ifstream readJson("./tasks.json");
+                        std::ifstream readJson(save_path);
+
+                        json j;
                         if (readJson.is_open()) {
                                 try {
                                         readJson >> j;
+                                        for (const auto& task : j) {
+                                                if (task.contains("id") && task["id"].is_number_integer()) {
+                                                        int id = task["id"].get<int>();
+                                                        if (id > upId) {
+                                                                upId = id;
+                                                        }
+                                                }
+                                        }
                                 } catch (const json::exception& e) {
                                         std::cerr << "Failed to open \"tasks.json\": " << e.what() << '\n';
                                         j = json::array();
                                 }
                                 readJson.close();
                         } else {
+                                std::cerr << "Failed to open \"tasks.json\"!";
                                 j = json::array();
                         }
 
@@ -195,14 +223,14 @@ int main(int argc, char** argv)
 
                                 j.push_back(j_struct);
 
-                                std::ofstream writeJson("./tasks.json");
+                                std::ofstream writeJson(save_path);
                                 writeJson << j.dump(4);
                                 writeJson.close();
 
                                 return 0;
                         }
                 } else if (arg == "update") {
-                        std::ifstream readJson("./tasks.json");
+                        std::ifstream readJson(save_path);
                         if (!readJson.is_open()) {
                                 std::cerr << "Failed to open \"tasks.json\"";
                                 return 1;
@@ -238,7 +266,7 @@ int main(int argc, char** argv)
                                 }
 
                                 if (taskFound) {
-                                        std::ofstream writeJson("./tasks.json");
+                                        std::ofstream writeJson(save_path);
                                         writeJson << j.dump(4);
                                         writeJson.close();
                                 } else {
@@ -251,7 +279,7 @@ int main(int argc, char** argv)
                                 return 1;
                         }
                 } else if (arg == "delete") {
-                        std::ifstream readJson("./tasks.json");
+                        std::ifstream readJson(save_path);
                         if (!readJson.is_open()) {
                                 std::cerr << "Failed to open \"tasks.json\"\n";
                                 return 1;
@@ -284,7 +312,7 @@ int main(int argc, char** argv)
                                 }
 
                                 if (taskFound) {
-                                        std::ofstream writeJson("./tasks.json");
+                                        std::ofstream writeJson(save_path);
                                         writeJson << j.dump(4);
                                         writeJson.close();
                                 } else {
@@ -297,7 +325,7 @@ int main(int argc, char** argv)
                                 return 1;
                         }
                 } else if (arg == "mark-in-progress") {
-                        std::ifstream readJson("./tasks.json");
+                        std::ifstream readJson(save_path);
                         if (!readJson.is_open()) {
                                 std::cerr << "Failed to load \"tasks.json\"\n";
                                 return 1;
@@ -333,7 +361,7 @@ int main(int argc, char** argv)
                                 }
 
                                 if (taskFound) {
-                                        std::ofstream writeJson("./tasks.json");
+                                        std::ofstream writeJson(save_path);
                                         writeJson << j.dump(4);
                                         writeJson.close();
                                 } else {
@@ -345,7 +373,7 @@ int main(int argc, char** argv)
                                 return 1;
                         }
                 } else if (arg == "done") {
-                        std::ifstream readJson("./tasks.json");
+                        std::ifstream readJson(save_path);
                         if (!readJson.is_open()) {
                                 std::cerr << "Failed to load \"tasks.json\"\n";
                                 return 1;
@@ -382,7 +410,7 @@ int main(int argc, char** argv)
                                 }
 
                                 if (taskFound) {
-                                        std::ofstream writeJson("./tasks.json");
+                                        std::ofstream writeJson(save_path);
                                         writeJson << j.dump(4);
                                         writeJson.close();
                                 } else {
@@ -394,7 +422,7 @@ int main(int argc, char** argv)
                                 return 1;
                         }
                 } else if (arg == "list") {
-                        std::ifstream readJson("./tasks.json");
+                        std::ifstream readJson(save_path);
                         if (!readJson.is_open()) {
                                 std::cerr << "Failed to open \"tasks.json\"!\n";
                                 return 1;
