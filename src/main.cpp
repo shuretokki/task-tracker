@@ -130,10 +130,15 @@ Commands:
   add <description>      Add a new task with the given description
   update <id> <desc>     Update the description of the task with <id>
   delete <id>            Delete the task with <id>
+  delete filter done     Delete task marked as done
+  delete fitler all      Delete all task
   mark-in-progress <id>  Mark the task with <id> as 'In progress'
   done <id>              Mark the task with <id> as 'DONE'
   list [status]          List all tasks or filter by status (todo, in-progress, done)
-)" },
+
+Note: 
+All tasks stored in "%APPDATA%\ctask\tasks.json".
+  )" },
                                                                       { "HELP_L", R"(
 Usage: ctask [command] [arguments] ...
 Commands:
@@ -157,15 +162,15 @@ Commands:
     Updates the description of the task with the specified 
     Example: ctask update 1001 "Revise report"
 
-  [delete] [<id>], [delete] [filter] [<filter>]
+  [delete] [<id>], [delete] [filter] [all]/[done]
     Deletes the task with the specified ID.
-    Example: ctask delete 1001
+    Example: ctask delete 1001, ctask delete filter all
 
-  [mark-in-progress <id>]
+  [mark-in-progress] [<id>]
     Marks the task with the specified ID as 'In progress'.
     Example: ctask mark-in-progress 1001
 
-  [done <id>]
+  [done] [<id>]
     Marks the task with the specified ID as 'DONE'.
     Example: ctask done 1001
 
