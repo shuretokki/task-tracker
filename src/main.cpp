@@ -50,16 +50,17 @@ std::string getDataPath()
 }
 
 int initial;
+using str = std::string;
 #include <chrono>
 struct Task
 {
-        int         id;
-        std::string description;
-        std::string status;
-        std::string createdAt;
-        std::string lastUpdate;
+        int id;
+        str description;
+        str status;
+        str createdAt;
+        str lastUpdate;
 
-        Task(std::string addedDescription)
+        Task(str addedDescription)
         {
                 id          = ++initial;
                 description = addedDescription;
@@ -68,10 +69,12 @@ struct Task
                 lastUpdate  = currentTime();
         };
 
-        std::string currentTime()
+        str currentTime()
         {
-                auto        time_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-                std::string now_c  = std::ctime(&time_t);
+                using system_clock = std::chrono::system_clock;
+                /**/
+                auto time_t        = system_clock::to_time_t(system_clock::now());
+                str  now_c         = std::ctime(&time_t);
                 return now_c.substr(0, now_c.length() - 1);
         }
 };
@@ -98,30 +101,22 @@ void from_json(const json& j, Task& t)
                 j.at("created_at").get_to(t.createdAt);
                 j.at("last_update").get_to(t.lastUpdate);
         } catch (const std::exception& e) {
-                std::cerr << "[!][ERROR] INVALID JSON FORMAT, EXCEPTION: " << e.what() << '\n';
+                std::cerr << "[!][ERROR] " << e.what() << '\n';
         }
 }
 
-/*
-tasks.json object = {"id", "description", "status", "created_at", "last_update"}
-tasks.json array = [{object1}, {object2}, {object3}, ...]
-*/
-
 #include <cctype>
-std::string uppercase(const std::string& string)
+str uppercase(str str)
 {
-        std::string STRING = string;
-        for (char& character : STRING) {
-                character = std::toupper(character);
-        }
-
-        return STRING;
+        for (char& ch : str)
+                ch = std::toupper(ch);
+        return str;
 }
 
 #include <map>
-inline void txt_template(const std::string& key)
+inline void txt_template(const str& key)
 {
-        static const std::map<std::string, std::string> templates = { { "HELP", R"(
+        static const std::map<str, str> templates = { { "HELP", R"(
 Usage: ctask [command] [arguments] ...
 Commands:
   -h, --help             Show this help message
@@ -130,16 +125,16 @@ Commands:
   add <description>      Add a new task with the given description
   update <id> <desc>     Update the description of the task with <id>
   delete <id>            Delete the task with <id>
-  delete filter done     Delete task marked as done
+  delete FILTER done     Delete task marked as done
   delete fitler all      Delete all task
   mark-in-progress <id>  Mark the task with <id> as 'In progress'
   done <id>              Mark the task with <id> as 'DONE'
-  list [status]          List all tasks or filter by status (todo, in-progress, done)
+  list [status]          List all tasks or FILTER by status (todo, in-progress, done)
 
 Note: 
 All tasks stored in "%APPDATA%\ctask\tasks.json".
   )" },
-                                                                      { "HELP_L", R"(
+                                                      { "HELP_L", R"(
 Usage: ctask [command] [arguments] ...
 Commands:
   [-h], [--help]
@@ -162,9 +157,9 @@ Commands:
     Updates the description of the task with the specified 
     Example: ctask update 1001 "Revise report"
 
-  [delete] [<id>], [delete] [filter] [all]/[done]
+  [delete] [<id>], [delete] [FILTER] [all]/[done]
     Deletes the task with the specified ID.
-    Example: ctask delete 1001, ctask delete filter all
+    Example: ctask delete 1001, ctask delete FILTER all
 
   [mark-in-progress] [<id>]
     Marks the task with the specified ID as 'In progress'.
@@ -181,42 +176,47 @@ Commands:
 
 Note: All tasks stored in "%APPDATA%\ctask\tasks.json".
 )" },
-                                                                      { "VERSION", R"(
+                                                      { "VERSION", R"(
 [ctask] ============
 Version : 1.1.0
 Build   : 2025-06-10
 Author  : shuretokki
 )" } };
-        ////////////////////////////////////////////////////////////////////////////////
-        auto it                                                   = templates.find(key);
+
+        auto it                                   = templates.find(key);
         if (it != templates.end()) {
                 std::cout << it->second;
         }
 }
 
+/*
+tasks.json object = {"id", "description", "status", "created_at", "last_update"}
+tasks.json array = [{object1}, {object2}, {object3}, ...]
+*/
 #include <fstream>
 int main(int argc, char** argv)
 {
-        const std::string data_path = getDataPath();
+        using READ          = std::ifstream;
+        using WRITE         = std::ofstream;
+        /**/
+
+        const str DATA_PATH = getDataPath();
         if (argc == 1) {
                 std::cout << "Type \"ctask -h / --help\" to show list of available arguments\n";
                 return 0;
         }
 
         for (size_t i = 1; i < argc; ++i) {
-                std::string argument = argv[i];
-                argument             = uppercase(argument);
-                if (argument == "-H" || argument == "--HELP") {
-
+                const str ARGUMENT = uppercase(argv[i]);
+                if (ARGUMENT == "HELP" || ARGUMENT == "-H" || ARGUMENT == "--HELP") {
                         if (argc == 2) {
                                 txt_template("HELP");
                                 return 0;
                         }
 
                         if ((i + 1) < argc && argc <= 3) {
-                                std::string filter = argv[i + 1];
-                                filter             = uppercase(filter);
-                                if (!(filter == "-L" || filter == "--LONG")) {
+                                const str FILTER = uppercase(argv[i + 1]);
+                                if (!(FILTER == "-L" || FILTER == "--LONG")) {
                                         std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
                                         return 1;
                                 }
@@ -224,7 +224,7 @@ int main(int argc, char** argv)
                                 txt_template("HELP_L");
                                 return 0;
                         }
-                } else if (argument == "-V" || argument == "--VERSION") {
+                } else if (ARGUMENT == "-V" || ARGUMENT == "--VERSION") {
                         if (!(argc < 3)) {
                                 std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
                                 return 1;
@@ -232,12 +232,12 @@ int main(int argc, char** argv)
 
                         txt_template("VERSION");
                         return 0;
-                } else if (argument == "ADD") {
-                        std::ifstream readJson(data_path);
+                } else if (ARGUMENT == "ADD") {
+                        READ JSON_(DATA_PATH);
 
                         json j;
                         try {
-                                readJson >> j;
+                                JSON_ >> j;
                                 for (const auto& task : j) {
                                         if (!(task.contains("id") && task["id"].is_number_integer())) {
                                                 continue;
@@ -248,113 +248,124 @@ int main(int argc, char** argv)
                                                 initial = id;
                                 }
                         } catch (const json::exception& e) {
-                                std::cerr << "[!][ERROR] FAILED TO READ OBJECTS FROM \"tasks.json\"\n";
-                                std::cout << "Creating new objects...\n[&]...\n";
+                                std::cerr << "[!] FAILED TO READ OBJECTS FROM \"tasks.json\"\n";
+                                std::cout << "[+] Creating new objects...\n[&]...\n";
                                 try {
                                         j = json::array();
-                                        std::cout << "[*][SUCCESS] JSON CREATED SUCCESFULLY!\n";
+                                        std::cout << "[*][SUCCESS] JSON_ CREATED SUCCESFULLY!\n";
                                 } catch (json::exception& e) {
-                                        std::cerr << "[!][ERROR] FAILED TO CREATE JSON: " << e.what() << '\n';
+                                        std::cerr << "[!][ERROR] " << e.what() << '\n';
                                         std::cout << "Exiting...\n";
                                         return 1;
                                 }
                         }
-                        readJson.close();
+                        JSON_.close();
 
                         if (!((i + 1) < argc && argc <= 3)) {
                                 std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
                                 return 1;
                         }
 
-                        std::string description = argv[i + 1];
-                        Task        task_to_json(description);
+                        const str DESCRIPTION = argv[i + 1];
+                        Task      task(DESCRIPTION);
                         std::cout << "[*][SUCCESS] CREATED NEW TASK\n";
-                        std::cout << "[+] ID=" << task_to_json.id << "  DESCRIPTION=" << task_to_json.description
-                                  << '\n';
+                        std::cout << "[+] ID=" << task.id << "  DESCRIPTION=" << task.description << '\n';
 
-                        json j_struct = task_to_json;
+                        json j_struct = task;
                         j.push_back(j_struct);
 
-                        std::ofstream writeJson(data_path);
-                        writeJson << j.dump(4);
-                        writeJson.close();
+                        WRITE JSON__(DATA_PATH);
+                        JSON__ << j.dump(4);
+                        JSON__.close();
 
                         return 0;
 
-                } else if (argument == "UPDATE") {
-                        std::ifstream readJson(data_path);
-                        if (!readJson.is_open()) {
+                } else if (ARGUMENT == "UPDATE") {
+                        READ JSON_(DATA_PATH);
+                        if (!JSON_.is_open()) {
                                 std::cerr << "[!][ERROR] FAILED TO OPEN \"tasks.json\"\n";
                                 return 1;
                         }
 
                         json j;
                         try {
-                                j = json::parse(readJson);
-                                readJson.close();
+                                j = json::parse(JSON_);
+                                JSON_.close();
                         } catch (json::parse_error& e) {
-                                std::cerr << "[!][ERROR] FAILED TO PARSE JSON: " << e.what() << '\n';
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
                                 return 1;
                         }
-                        if ((i + 2) < argc && argc <= 4) {
-                                int targetId;
-                                try {
-                                        targetId = std::stoi(argv[i + 1]);
-                                } catch (std::invalid_argument& e) {
-                                        std::cerr << "[!][ERROR] INVALID ID FORMAT: " << e.what() << '\n';
-                                        return 1;
-                                }
 
-                                bool        taskFound      = false;
-                                std::string newDescription = argv[i + 2];
-                                for (auto& task : j) {
-                                        if (task.is_object() && task.contains("id")
-                                            && task["id"].get<int>() == targetId) {
-                                                Task t("");
-                                                task["description"] = newDescription;
-                                                task["last_update"] = t.currentTime();
-                                                taskFound           = true;
-                                        }
-                                }
-
-                                if (!(taskFound)) {
-                                        std::cerr << "[!][ERROR] TASK NOT FOUND!\n";
-                                        return 1;
-                                }
-
-                                std::ofstream writeJson(data_path);
-                                writeJson << j.dump(4);
-                                writeJson.close();
-
-                        } else {
+                        if (!((i + 2) < argc && argc <= 4)) {
                                 std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
                                 return 1;
                         }
-                } else if (argument == "DELETE") {
-                        std::ifstream readJson(data_path);
-                        if (!readJson.is_open()) {
+
+                        int targetId;
+                        try {
+                                targetId = std::stoi(argv[i + 1]);
+                        } catch (std::invalid_argument& e) {
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
+                                return 1;
+                        }
+
+                        bool      taskFound       = false;
+                        const str NEW_DESCRIPTION = argv[i + 2];
+                        for (auto& task : j) {
+                                if (!(task.is_object() && task.contains("id") && task["id"].get<int>() == targetId)) {
+                                        continue;
+                                }
+
+                                Task      t("");
+                                const str TEMP_DESCRIPTION = task["description"].get<str>();
+                                task["description"]        = NEW_DESCRIPTION;
+                                task["last_update"]        = t.currentTime();
+                                taskFound                  = true;
+
+                                std::cout << "[*][SUCCESS] TASK " << task["id"] << "/" << TEMP_DESCRIPTION
+                                          << " UPDATED TO -> " << NEW_DESCRIPTION << '\n';
+                        }
+
+                        if (!(taskFound)) {
+                                std::cerr << "[!][ERROR] TASK NOT FOUND!\n";
+                                return 1;
+                        }
+
+                        WRITE JSON__(DATA_PATH);
+                        JSON__ << j.dump(4);
+                        JSON__.close();
+
+                        return 0;
+
+                } else if (ARGUMENT == "DELETE") {
+                        if (!(argc == 3)) {
+                                return 1;
+                        }
+
+                        READ JSON_(DATA_PATH);
+                        if (!JSON_.is_open()) {
                                 std::cerr << "[!][ERROR] FAILED TO OPEN \"tasks.json\"\n";
                                 return 1;
                         }
 
                         json j;
                         try {
-                                j = json::parse(readJson);
-                                readJson.close();
+                                j = json::parse(JSON_);
+                                JSON_.close();
                         } catch (json::parse_error& e) {
-                                std::cerr << "[!][ERROR] FAILED TO PARSE JSON: " << e.what() << '\n';
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
                                 return 1;
                         }
 
-                        if ((i + 1) < argc && argc <= 3) {
-                                int targetId;
-                                try {
-                                        targetId = std::stoi(argv[i + 1]);
-                                } catch (std::invalid_argument& e) {
-                                        std::cerr << "[!][ERROR] INVALID ID FORMAT: " << e.what() << '\n';
-                                        return 1;
-                                }
+                        const str TARGET  = argv[i + 1];
+                        bool      success = false;
+                        try {
+                                size_t pos;
+                                int    targetId = std::stoi(TARGET, &pos);
 
+                                if (!(pos == TARGET.length())) {
+                                        throw std::invalid_argument("[!][ERROR] INVALID FORMAT\n");
+                                }
                                 bool taskFound = false;
                                 for (auto task = j.begin(); task != j.end(); ++task) {
                                         if (!(task->is_object() && (*task)["id"].get<int>() == targetId)) {
@@ -365,34 +376,24 @@ int main(int argc, char** argv)
                                         taskFound = true;
                                         break;
                                 }
-
                                 if (!taskFound) {
-                                        std::cerr << "[!][ERROR] TASK NOT FOUND\n";
+                                        std::cerr << "[!][ERROR] TASK WITH ID " << targetId << " NOT FOUND\n";
                                         return 1;
                                 }
 
-                                std::ofstream writeJson(data_path);
-                                writeJson << j.dump(4);
-                                writeJson.close();
-                        } else if ((i + 2) < argc && argc <= 4) {
-                                std::string check_argument = argv[1 + 1];
-                                check_argument             = uppercase(check_argument);
-                                if (!(check_argument == "FILTER")) {
-                                        std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
-                                        return 1;
-                                }
-
-                                std::string filter = argv[i + 2];
-                                filter             = uppercase(filter);
-                                if (filter == "ALL") {
+                                std::cout << "[*][SUCCESS] TASK WITH ID " << targetId << " DELETED\n";
+                                success = true;
+                        } catch (const std::invalid_argument&) {
+                                const str FILTER = uppercase(TARGET);
+                                if (FILTER == "ALL") {
                                         j.clear();
 
-                                        std::ofstream writeJson(data_path);
-                                        writeJson << j.dump(4);
-                                        writeJson.close();
+                                        WRITE JSON__(DATA_PATH);
+                                        JSON__ << j.dump(4);
+                                        JSON__.close();
                                         std::cout << "[*][SUCCESS] ALL TASK DELETED SUCCESSFULLY\n";
 
-                                } else if (filter == "DONE") {
+                                } else if (FILTER == "DONE") {
                                         for (auto task = j.begin(); task != j.end();) {
                                                 if (task->is_object()
                                                     && (*task)["status"].get<std::string>() == "DONE") {
@@ -401,32 +402,28 @@ int main(int argc, char** argv)
                                                         ++task;
                                                 }
                                         }
-
-                                        std::ofstream writeJson(data_path);
-                                        writeJson << j.dump(4);
-                                        writeJson.close();
-                                        std::cout << "[*][SUCCESS] ALL COMPLETED TASK SUCCESSFULLY DELETED\n";
-
-                                } else {
-                                        std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
-                                        return 1;
                                 }
                         }
+
+                        WRITE JSON__(DATA_PATH);
+                        JSON__ << j.dump(4);
+                        JSON__.close();
+
                         return 0;
 
-                } else if (argument == "MARK-IN-PROGRESS") {
-                        std::ifstream readJson(data_path);
-                        if (!readJson.is_open()) {
+                } else if (ARGUMENT == "MARK-IN-PROGRESS" || ARGUMENT == "IN-PROGRESS") {
+                        READ JSON_(DATA_PATH);
+                        if (!JSON_.is_open()) {
                                 std::cerr << "[!][ERROR] FAILED TO LOAD \"tasks.json\"\n";
                                 return 1;
                         }
 
                         json j;
                         try {
-                                j = json::parse(readJson);
-                                readJson.close();
+                                j = json::parse(JSON_);
+                                JSON_.close();
                         } catch (const json::parse_error& e) {
-                                std::cerr << "[!][ERROR] FAILED TO PARSE JSON: " << e.what() << '\n';
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
                                 return 1;
                         }
 
@@ -439,7 +436,7 @@ int main(int argc, char** argv)
                         try {
                                 targetId = std::stoi(argv[i + 1]);
                         } catch (std::invalid_argument& e) {
-                                std::cerr << "[!][ERROR] INVALID ID FORMAT: " << e.what() << '\n';
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
                                 return 1;
                         }
 
@@ -450,7 +447,7 @@ int main(int argc, char** argv)
                                 }
 
                                 Task t("");
-                                task["status"]      = "In progress";
+                                task["status"]      = "IN-PROGRESS";
                                 task["last_update"] = t.currentTime();
                                 taskFound           = true;
                         }
@@ -460,25 +457,25 @@ int main(int argc, char** argv)
                                 return 1;
                         }
 
-                        std::ofstream writeJson(data_path);
-                        writeJson << j.dump(4);
-                        writeJson.close();
+                        WRITE JSON__(DATA_PATH);
+                        JSON__ << j.dump(4);
+                        JSON__.close();
 
                         return 0;
 
-                } else if (argument == "DONE") {
-                        std::ifstream readJson(data_path);
-                        if (!readJson.is_open()) {
+                } else if (ARGUMENT == "MARK-DONE" || ARGUMENT == "DONE") {
+                        READ JSON_(DATA_PATH);
+                        if (!JSON_.is_open()) {
                                 std::cerr << "[!][ERROR] FAILED TO LOAD \"tasks.json\"\n";
                                 return 1;
                         }
 
                         json j;
                         try {
-                                j = json::parse(readJson);
-                                readJson.close();
+                                j = json::parse(JSON_);
+                                JSON_.close();
                         } catch (const json::parse_error& e) {
-                                std::cerr << "[!][ERROR] FAILED TO PARSE JSON: " << e.what() << '\n';
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
                                 return 1;
                         }
 
@@ -487,7 +484,7 @@ int main(int argc, char** argv)
                                 try {
                                         targetId = std::stoi(argv[i + 1]);
                                 } catch (std::invalid_argument& e) {
-                                        std::cerr << "[!][ERROR] INVALID ID FORMAT: " << e.what() << '\n';
+                                        std::cerr << "[!][ERROR] " << e.what() << '\n';
                                         return 1;
                                 }
 
@@ -502,6 +499,8 @@ int main(int argc, char** argv)
                                         task["status"]      = "DONE";
                                         task["last_update"] = t.currentTime();
                                         taskFound           = true;
+                                        std::cout << "[*][SUCCESS] TASK " << task["id"] << "/"
+                                                  << task["description"].get<str>() << " MARKED AS DONE\n";
                                 }
 
                                 if (!(taskFound)) {
@@ -509,60 +508,54 @@ int main(int argc, char** argv)
                                         return 1;
                                 }
 
-                                std::ofstream writeJson(data_path);
-                                writeJson << j.dump(4);
-                                writeJson.close();
+                                WRITE JSON__(DATA_PATH);
+                                JSON__ << j.dump(4);
+                                JSON__.close();
+
+                                return 0;
 
                         } else {
                                 std::cerr << "[!][ERROR] INVALID ARGUMENT, REFER: \"ctask --help\"";
                                 return 1;
                         }
-                } else if (argument == "LIST") {
-                        std::ifstream readJson(data_path);
-                        if (!readJson.is_open()) {
+                } else if (ARGUMENT == "LIST") {
+                        READ JSON_(DATA_PATH);
+                        if (!JSON_.is_open()) {
                                 std::cerr << "[!][ERROR] FAILED TO OPEN \"tasks.json\"!\n";
                                 return 1;
                         }
 
                         json j;
                         try {
-                                j = json::parse(readJson);
-                                readJson.close();
+                                j = json::parse(JSON_);
+                                JSON_.close();
                         } catch (json::parse_error& e) {
-                                std::cerr << "[!][ERROR] FAILED TO PARSE JSON: " << e.what() << '\n';
+                                std::cerr << "[!][ERROR] " << e.what() << '\n';
                                 return 1;
                         }
 
                         if (argc == 2) {
                                 for (auto& task : j) {
-                                        if (!(task.is_object() && task.contains("description"))) {
+                                        if (!(task.is_object())) {
                                                 continue;
                                         }
 
-                                        std::cout << "[" << task["id"] << "] "
-                                                  << task["description"].get<std::string>();
-
-                                        std::cout << "\nSTATUS     "
-                                                  << ": " << task["status"].get<std::string>();
-                                        std::cout << "\nCREATED    "
-                                                  << ": " << task["created_at"].get<std::string>();
-                                        std::cout << "\nLAST UPDATE"
-                                                  << ": " << task["last_update"].get<std::string>() << "\n\n";
+                                        std::cout << "[" << task["id"] << "] " << task["status"].get<std::string>()
+                                                  << "/" << task["description"].get<std::string>() << '\n';
                                 }
-
                                 return 0;
 
                         } else if ((i + 1) < argc && argc <= 3) {
-                                std::string filter = argv[i + 1];
-                                filter             = uppercase(filter);
-                                if (filter == "DONE") {
+                                const str FILTER = uppercase(argv[i + 1]);
+                                if (FILTER == "-L" || FILTER == "--LONG") {
                                         bool taskFound = false;
                                         for (auto& task : j) {
-                                                if (!(task.is_object() && task["status"] == "DONE")) {
+                                                if (!(task.is_object())) {
                                                         continue;
                                                 }
 
                                                 std::cout << "[" << task["id"] << "] "
+                                                          << task["status"].get<std::string>() << "/"
                                                           << task["description"].get<std::string>();
 
                                                 std::cout << "\nCREATED    "
@@ -579,35 +572,62 @@ int main(int argc, char** argv)
                                         }
 
                                         return 0;
-                                } else if (filter == "TODO") {
+                                } else if (FILTER == "DONE" || FILTER == "-D") {
+                                        bool taskFound = false;
+                                        for (auto& task : j) {
+                                                if (!(task.is_object() && task["status"] == "DONE")) {
+                                                        continue;
+                                                }
+
+                                                std::cout << "[" << task["id"] << "] "
+                                                          << task["status"].get<std::string>() << "/"
+                                                          << task["description"].get<std::string>();
+
+                                                std::cout << "\n[*] CREATED     "
+                                                          << "\t" << task["created_at"].get<std::string>();
+                                                std::cout << "\n[*] LAST UPDATE "
+                                                          << "\t" << task["last_update"].get<std::string>() << "\n\n";
+
+                                                if (!taskFound)
+                                                        taskFound = true;
+                                        }
+
+                                        if (!taskFound) {
+                                                std::cout << "~ No completed tasks yet!\n";
+                                        }
+
+                                        return 0;
+                                } else if (FILTER == "TODO" || FILTER == "TO-DO" || FILTER == "-T") {
                                         for (auto& task : j) {
                                                 if (!(task.is_object() && task["status"] == "TO-DO")) {
                                                         continue;
                                                 }
 
                                                 std::cout << "[" << task["id"] << "] "
+                                                          << task["status"].get<std::string>() << "/"
                                                           << task["description"].get<std::string>();
 
-                                                std::cout << "\n[*]CREATED     "
-                                                          << ":\t" << task["created_at"].get<std::string>();
-                                                std::cout << "\n[*]LAST UPDATE "
-                                                          << ":\t" << task["last_update"].get<std::string>() << "\n\n";
+                                                std::cout << "\n[*] CREATED     "
+                                                          << "\t" << task["created_at"].get<std::string>();
+                                                std::cout << "\n[*] LAST UPDATE "
+                                                          << "\t" << task["last_update"].get<std::string>() << "\n\n";
                                         }
 
                                         return 0;
-                                } else if (filter == "IN-PRORESS" || filter == "PROGRESS") {
+                                } else if (FILTER == "IN-PROGRESS" || FILTER == "-I") {
                                         for (auto& task : j) {
                                                 if (!(task.is_object() && task["status"] == "In progress")) {
                                                         continue;
                                                 }
 
                                                 std::cout << "[" << task["id"] << "] "
+                                                          << task["status"].get<std::string>() << "/"
                                                           << task["description"].get<std::string>();
 
-                                                std::cout << "\nCreated    "
-                                                          << ": " << task["created_at"].get<std::string>();
-                                                std::cout << "\nLast update"
-                                                          << ": " << task["last_update"].get<std::string>() << "\n\n";
+                                                std::cout << "\n[*] CREATED     "
+                                                          << "\t" << task["created_at"].get<std::string>();
+                                                std::cout << "\n[*] LAST UPDATE "
+                                                          << "\t" << task["last_update"].get<std::string>() << "\n\n";
                                         }
 
                                         return 0;
