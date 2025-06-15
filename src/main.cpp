@@ -18,10 +18,12 @@
 
 #include <cstdlib>
 #include <filesystem>
+using str = std::string;
 
-std::string getDataPath()
+str getDataPath()
 {
-        std::filesystem::path dataPath;
+        using path = std::filesystem::path;
+        path dataPath;
 
 #ifdef _WIN32
         char*  appdata = nullptr;
@@ -42,7 +44,7 @@ std::string getDataPath()
 #endif
 
         if (!dataPath.empty()) {
-                std::filesystem::path appFolder = dataPath / "ctask";
+                path appFolder = dataPath / "ctask";
                 std::filesystem::create_directories(appFolder);
                 return (appFolder / "tasks.json").string();
         }
@@ -51,7 +53,6 @@ std::string getDataPath()
 }
 
 int initial;
-using str = std::string;
 #include <chrono>
 struct Task
 {
@@ -223,81 +224,27 @@ int main(int argc, char** argv)
 
         for (size_t i = 1; i < argc; ++i) {
                 const str ARGUMENT = uppercase(argv[i]);
-                if (ARGUMENT == "-H" || ARGUMENT == "--HELP") {
+                bool use_flag_version{ false }, use_flag_help{ false }, use_flag_add{ false }, use_flag_update{ false },
+                    use_flag_delete{ false }, use_flag_list{ false }, use_flag_mark1{ false }, use_flag_mark2{ false };
+
+                if (ARGUMENT == "-V" || ARGUMENT == "--VERSION") {
+                        if (!(argc < 3)) {
+                                keytext("ERR_INVALID_ARG", "ERR");
+                                return 1;
+                        }
+                        use_flag_version = true;
+                } else if (ARGUMENT == "-H" || ARGUMENT == "--HELP") {
                         if (!(argc < 4)) {
                                 keytext("ERR_INVALID_ARG", "ERR");
                                 return 1;
                         }
-
-                        bool use_flag_extra_long{ false };
-                        for (int j = 2; j < argc; ++j) {
-                                const str FLAG = uppercase(argv[j]);
-                                if (FLAG == "-L" || FLAG == "--LONG") {
-                                        use_flag_extra_long = true;
-                                }
-                        }
-
-                        if (use_flag_extra_long)
-                                keytext("HELP_L");
-                        else
-                                keytext("HELP");
-
-                        return 0;
-                } else if (ARGUMENT == "-V" || ARGUMENT == "--VERSION") {
-                        if (!(argc < 3)) {
-                                std::cerr << "[!] INVALID ARGUMENT, REFER: \"ctask --help\"";
-                                return 1;
-                        }
-
-                        keytext("VERSION");
-                        return 0;
+                        use_flag_help = true;
                 } else if (ARGUMENT == "ADD") {
-                        READ JSON_(DATA_PATH);
-
-                        json j;
-                        try {
-                                JSON_ >> j;
-                                for (const auto& task : j) {
-                                        if (!(task.contains("id") && task["id"].is_number_integer())) {
-                                                continue;
-                                        }
-
-                                        int id = task["id"].get<int>();
-                                        if (id > initial)
-                                                initial = id;
-                                }
-                        } catch (const json::exception&) {
-                                std::cerr << "[!] FAILED TO READ OBJECTS FROM \"tasks.json\"\n";
-                                std::cout << "[+] Creating new objects...\n[&]...\n";
-                                try {
-                                        j = json::array();
-                                        std::cout << "[*] JSON CREATED SUCCESFULLY!\n";
-                                } catch (json::exception& e) {
-                                        std::cerr << "[!] " << e.what() << '\n';
-                                        std::cout << "Exiting...\n";
-                                        return 1;
-                                }
-                        }
-                        JSON_.close();
-
-                        if (!((i + 1) < argc && argc <= 3)) {
-                                std::cerr << "[!] INVALID ARGUMENT, REFER: \"ctask --help\"";
+                        if (!(argc < 5)) {
+                                keytext("ERR_INVALID_ARG", "ERR");
                                 return 1;
                         }
-
-                        const str DESCRIPTION = argv[i + 1];
-                        Task      task(DESCRIPTION);
-                        std::cout << "[*] CREATED NEW TASK\n";
-                        std::cout << "[+] ID=" << task.id << "  DESCRIPTION=" << task.description << '\n';
-
-                        json j_struct = task;
-                        j.push_back(j_struct);
-
-                        WRITE JSON__(DATA_PATH);
-                        JSON__ << j.dump(4);
-                        JSON__.close();
-
-                        return 0;
+                        use_flag_add = true;
                 } else if (ARGUMENT == "UPDATE") {
                         READ JSON_(DATA_PATH);
                         if (!JSON_.is_open()) {
@@ -678,6 +625,67 @@ int main(int argc, char** argv)
                 } else {
                         std::cerr << "[!] INVALID ARGUMENT, REFER: \"ctask --help\"";
                         return 1;
+                }
+
+                if (use_flag_version) {
+                        keytext("VERSION");
+                } else if (use_flag_help) {
+                        bool use_flag_extra_long{ false };
+                        for (int j = 2; j < argc; ++j) {
+                                const str FLAG = uppercase(argv[j]);
+                                if (FLAG == "-L" || FLAG == "--LONG") {
+                                        use_flag_extra_long = true;
+                                }
+                        }
+
+                        if (use_flag_extra_long)
+                                keytext("HELP_L");
+                        else
+                                keytext("HELP");
+                } else if (use_flag_add) {
+                        READ JSON_(DATA_PATH);
+                        json j;
+                        try {
+                                JSON_ >> j;
+                                for (const auto& task : j) {
+                                        if (!(task.contains("id") && task["id"].is_number_integer())) {
+                                                continue;
+                                        }
+
+                                        int id = task["id"].get<int>();
+                                        if (id > initial)
+                                                initial = id;
+                                }
+                        } catch (const json::exception&) {
+                                std::cerr << "[!] FAILED TO READ OBJECTS FROM \"tasks.json\"\n";
+                                std::cout << "[+] Creating new objects...\n[&]...\n";
+                                try {
+                                        j = json::array();
+                                        std::cout << "[*] JSON CREATED SUCCESFULLY!\n";
+                                } catch (json::exception& e) {
+                                        std::cerr << "[!] " << e.what() << '\n';
+                                        std::cout << "Exiting...\n";
+                                        return 1;
+                                }
+                        }
+                        JSON_.close();
+
+                        if (!((i + 1) < argc && argc <= 3)) {
+                                std::cerr << "[!] INVALID ARGUMENT, REFER: \"ctask --help\"";
+                                return 1;
+                        }
+
+                        const str DESCRIPTION = argv[i + 1];
+                        Task      task(DESCRIPTION);
+                        std::cout << "[*] CREATED NEW TASK\n";
+                        std::cout << "[+] ID=" << task.id << "  DESCRIPTION=" << task.description << '\n';
+
+                        json j_struct = task;
+                        j.push_back(j_struct);
+
+                        WRITE JSON__(DATA_PATH);
+                        JSON__ << j.dump(4);
+                        JSON__.close();
                 }
         }
 
