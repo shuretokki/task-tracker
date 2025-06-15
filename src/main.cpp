@@ -34,12 +34,9 @@ str getDataPath()
                 free(appdata);
         }
 #else
-        char*  home = nullptr;
-        size_t len;
-        _dupenv_s(&home, &len, "HOME");
-        if (home != nullptr) {
-                dataPath = home;
-                free(home);
+        char* appdata = getenv("APPDATA");
+        if (appdata != nullptr) {
+            dataPath = appdata;
         }
 #endif
 
