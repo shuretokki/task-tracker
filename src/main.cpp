@@ -18,41 +18,35 @@
 
 #include <cstdlib>
 #include <filesystem>
-using str = std::string;
+#include <string>
 
+namespace fs = std::filesystem;
+using str    = std::string;
 str getDataPath()
 {
-        using path = std::filesystem::path;
-        path dataPath;
+        fs::path dataPath;
 
 #ifdef _WIN32
-        char*  appdata = nullptr;
-        size_t len;
-        _dupenv_s(&appdata, &len, "APPDATA");
+        char* appdata = getenv("LOCALAPPDATA");
         if (appdata != nullptr) {
                 dataPath = appdata;
-                free(appdata);
         }
 #else
-        char*  home = nullptr;
-        size_t len;
-        _dupenv_s(&home, &len, "HOME");
+        char* home = getenv("HOME");
         if (home != nullptr) {
                 dataPath = home;
-                free(home);
         }
 #endif
 
         if (!dataPath.empty()) {
-                path appFolder = dataPath / "ctask";
-                std::filesystem::create_directories(appFolder);
+                fs::path appFolder = dataPath / "ctask/Data";
+                fs::create_directories(appFolder);
                 return (appFolder / "tasks.json").string();
         }
 
         return "tasks.json";
 }
 
-int initial;
 #include <chrono>
 struct Task
 {
@@ -62,19 +56,18 @@ struct Task
         str createdAt;
         str lastUpdate;
 
-        Task(str addedDescription)
+        explicit Task(const str& addedDescription, int& taskId)
+            : id(++taskId),
+              description(std::move(addedDescription)),
+              status("TO-DO"),
+              createdAt(currentTime()),
+              lastUpdate(currentTime())
         {
-                id          = ++initial;
-                description = addedDescription;
-                status      = "TO-DO";
-                createdAt   = currentTime();
-                lastUpdate  = currentTime();
-        };
+        }
 
-        str currentTime()
+        static str currentTime()
         {
                 using system_clock = std::chrono::system_clock;
-                /**/
                 auto time_t        = system_clock::to_time_t(system_clock::now());
                 str  now_c         = std::ctime(&time_t);
                 return now_c.substr(0, now_c.length() - 1);
@@ -183,7 +176,7 @@ Note: All tasks stored in "%APPDATA%\ctask\tasks.json".
 )" },
                                                       { "VERSION", R"(
 [ctask] ============
-Version : 1.1.0
+Version : 1.2.0
 Build   : 2025-06-10
 Author  : shuretokki
 )" },
@@ -197,12 +190,13 @@ Author  : shuretokki
                 std::cerr << "[!] KEY NOT FOUND\n";
         }
 
-        if (status == "OUT")
+        if (status == "OUT") {
                 std::cout << it->second;
-        else if (status == "ERR")
+        } else if (status == "ERR") {
                 std::cerr << it->second;
-        else if (status == "LOG")
+        } else if (status == "LOG") {
                 std::clog << it->second;
+        }
 }
 
 /*
@@ -210,6 +204,7 @@ tasks.json object = {"id", "description", "status", "created_at", "last_update"}
 tasks.json array = [{object1}, {object2}, {object3}, ...]
 */
 #include <fstream>
+#include <utility>
 int main(int argc, char** argv)
 {
         if (argc == 1) {
@@ -224,9 +219,9 @@ int main(int argc, char** argv)
 
         for (size_t i = 1; i < argc; ++i) {
                 const str ARGUMENT = uppercase(argv[i]);
+
                 bool use_flag_version{ false }, use_flag_help{ false }, use_flag_add{ false }, use_flag_update{ false },
                     use_flag_delete{ false }, use_flag_list{ false }, use_flag_mark1{ false }, use_flag_mark2{ false };
-
                 if (ARGUMENT == "-V" || ARGUMENT == "--VERSION") {
                         if (!(argc < 3)) {
                                 keytext("ERR_INVALID_ARG", "ERR");
@@ -326,11 +321,9 @@ int main(int argc, char** argv)
                         try {
                                 size_t pos;
                                 int    targetId = std::stoi(TARGET, &pos);
-                                std::cout << "check 1";
                                 if (!(pos == TARGET.length())) {
                                         throw std::invalid_argument("[!] INVALID FORMAT\n");
                                 }
-                                std::cout << "check 2";
                                 bool is_task_found = false;
                                 for (auto task = j.begin(); task != j.end(); ++task) {
                                         if (!(task->is_object() && (*task)["id"].get<int>() == targetId)) {
@@ -638,10 +631,11 @@ int main(int argc, char** argv)
                                 }
                         }
 
-                        if (use_flag_extra_long)
+                        if (use_flag_extra_long) {
                                 keytext("HELP_L");
-                        else
+                        } else {
                                 keytext("HELP");
+                        }
                 } else if (use_flag_add) {
                         READ JSON_(DATA_PATH);
                         json j;
@@ -653,8 +647,9 @@ int main(int argc, char** argv)
                                         }
 
                                         int id = task["id"].get<int>();
-                                        if (id > initial)
-                                                initial = id;
+                                        int taskId{};
+                                        if (id > taskId)
+                                                taskId = id;
                                 }
                         } catch (const json::exception&) {
                                 std::cerr << "[!] FAILED TO READ OBJECTS FROM \"tasks.json\"\n";
