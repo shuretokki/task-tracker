@@ -18,13 +18,11 @@
 
 #include <cstdlib>
 #include <filesystem>
-using str    = std::string;
 namespace fs = std::filesystem;
 
-str getDataPath()
+std::string getDataPath()
 {
     fs::path dataPath;
-
 #ifdef _WIN32
     if ( auto appdata { getenv ( "APPDATA" ) }; appdata != nullptr )
         dataPath = appdata;
@@ -47,12 +45,13 @@ int initial;
 
 struct Task
 {
-        int id;
-        str description;
-        str status;
-        str createdAt;
-        str lastUpdate;
+        int         id;
+        std::string description;
+        std::string status;
+        std::string createdAt;
+        std::string lastUpdate;
 
+    public:
         explicit Task ( const std::string_view& addedDescription )
         {
             id          = ++initial;
@@ -62,12 +61,12 @@ struct Task
             lastUpdate  = currentTime();
         }
 
-        static str currentTime()
+        static std::string currentTime()
         {
             using system_clock = std::chrono::system_clock;
             /**/
-            auto time_t = system_clock::to_time_t ( system_clock::now() );
-            str  now_c  = std::ctime ( &time_t );
+            auto time_t       = system_clock::to_time_t ( system_clock::now() );
+            std::string now_c = std::ctime ( &time_t );
             return now_c.substr ( 0, now_c.length() - 1 );
         }
 };
@@ -78,51 +77,63 @@ using json = nlohmann::ordered_json;
 
 void to_json (
   json&       j,
-  const Task& t )
+  const Task& task )
 {
     j = json {
-        { "id", t.id },
-        { "description", t.description },
-        { "status", t.status },
-        { "created_at", t.createdAt },
-        { "last_update", t.lastUpdate },
+        { "id", task.id },
+        { "description", task.description },
+        { "status", task.status },
+        { "created_at", task.createdAt },
+        { "last_update", task.lastUpdate },
     };
 }
 
 void from_json (
   const json& j,
-  Task&       t )
+  Task&       task )
 {
     try {
-        j.at ( "id" ).get_to ( t.id );
-        j.at ( "description" ).get_to ( t.description );
-        j.at ( "status" ).get_to ( t.status );
-        j.at ( "created_at" ).get_to ( t.createdAt );
-        j.at ( "last_update" ).get_to ( t.lastUpdate );
+        j.at ( "id" ).get_to ( task.id );
+        j.at ( "description" ).get_to ( task.description );
+        j.at ( "status" ).get_to ( task.status );
+        j.at ( "created_at" ).get_to ( task.createdAt );
+        j.at ( "last_update" ).get_to ( task.lastUpdate );
     } catch ( const std::exception& e ) {
-        std::cerr << "[!] " << e.what() << '\n';
+        std::cerr << std::format ( "[!]{}\n", e.what() );
     }
 }
 
-#include <cctype>
+namespace {
+    constexpr char toupper ( char c )
+    {
+        if ( c >= 'a' && c <= 'z' )
+            return c - ( 'a' - 'A' );
+        return c;
+    }
 
-str uppercase ( str string )
+} // namespace
+
+#include <ranges>
+namespace stdr = std::ranges;
+
+constexpr std::string uppercase ( std::string str )
 {
-    for ( char& character : string )
-        character = std::toupper ( character );
-    return string;
+    stdr::for_each ( str, [] ( char& ch ) { ch = toupper ( ch ); } );
+    return str;
 }
 
 #include <map>
+#include <format>
 
 inline void keytext (
-  const str& key,
-  const str& status = "OUT" )
+  const std::string_view& key,
+  const std::string_view& status = "OUT" )
 {
-    static const std::map<str, str> templates = { { "START", R"(
+    static const std::map<std::string_view, std::string_view> templates = {
+        { "START", R"(
 Type "ctask -h / --help" to show list of available arguments
                 )" },
-                                                  { "HELP", R"(
+        { "HELP", R"(
 Usage: ctask [command] [arguments] ...
 Commands:
   -h, --help             Show this help message
@@ -140,7 +151,7 @@ Commands:
 Note: 
 All tasks stored in "%APPDATA%\ctask\tasks.json".
   )" },
-                                                  { "HELP_L", R"(
+        { "HELP_L", R"(
 Usage: ctask [command] [arguments] ...
 Commands:
   [-h], [--help]
@@ -182,27 +193,28 @@ Commands:
 
 Note: All tasks stored in "%APPDATA%\ctask\tasks.json".
 )" },
-                                                  { "VERSION", R"(
+        { "VERSION", R"(
 [ctask] ============
 Version : 1.1.0
 Build   : 2025-06-10
 Author  : shuretokki
 )" },
 
-                                                  { "ERR_INVALID_ARG", R"(
+        { "ERR_INVALID_ARG", R"(
 [!] INVALID ARGUMENT, REFER: "ctask --help"
-)" } };
+)" }
+    };
 
-    auto it                                   = templates.find ( key );
+    auto it = templates.find ( key );
     if ( ! ( it != templates.end() ) )
         std::cerr << "[!] KEY NOT FOUND\n";
 
     if ( status == "OUT" )
-        std::cout << it->second;
+        std::cout << std::format ( "{}\n", it->second );
     else if ( status == "ERR" )
-        std::cerr << it->second;
+        std::cerr << std::format ( "{}\n", it->second );
     else if ( status == "LOG" )
-        std::clog << it->second;
+        std::clog << std::format ( "{}\n", it->second );
 }
 
 /*
@@ -220,14 +232,14 @@ int main (
         return 0;
     }
 
-    using READ          = std::ifstream;
-    using WRITE         = std::ofstream;
-    const str DATA_PATH = getDataPath();
+    using READ                  = std::ifstream;
+    using WRITE                 = std::ofstream;
+    const std::string DATA_PATH = getDataPath();
     /**/
 
     for ( size_t i = 1; i < argc; ++i ) {
-        const str ARGUMENT = uppercase ( argv [ i ] );
-        bool      use_flag_version { false }, use_flag_help { false },
+        const std::string ARGUMENT = uppercase ( argv [ i ] );
+        bool              use_flag_version { false }, use_flag_help { false },
           use_flag_add { false }, use_flag_update { false },
           use_flag_delete { false }, use_flag_list { false },
           use_flag_mark1 { false }, use_flag_mark2 { false };
@@ -279,8 +291,8 @@ int main (
                 return 1;
             }
 
-            bool      is_task_found   = false;
-            const str NEW_DESCRIPTION = argv [ i + 2 ];
+            bool              is_task_found   = false;
+            const std::string NEW_DESCRIPTION = argv [ i + 2 ];
             for ( auto& task : j ) {
                 if ( ! (
                        task.is_object() && task.contains ( "id" )
@@ -288,11 +300,12 @@ int main (
                     continue;
                 }
 
-                Task      t ( "" );
-                const str TEMP_DESCRIPTION = task [ "description" ].get<str>();
-                task [ "description" ]     = NEW_DESCRIPTION;
-                task [ "last_update" ]     = t.currentTime();
-                is_task_found              = true;
+                Task              t ( "" );
+                const std::string TEMP_DESCRIPTION =
+                  task [ "description" ].get<std::string>();
+                task [ "description" ] = NEW_DESCRIPTION;
+                task [ "last_update" ] = t.currentTime();
+                is_task_found          = true;
 
                 std::cout << "[*] TASK " << TEMP_DESCRIPTION
                           << " UPDATED TO -> " << NEW_DESCRIPTION << '\n';
@@ -327,8 +340,8 @@ int main (
                 return 1;
             }
 
-            const str TARGET  = argv [ i + 1 ];
-            bool      success = false;
+            const std::string TARGET  = argv [ i + 1 ];
+            bool              success = false;
             try {
                 size_t pos;
                 int    targetId = std::stoi ( TARGET, &pos );
@@ -357,7 +370,7 @@ int main (
                 std::cout << "[*] TASK WITH ID " << targetId << " DELETED\n";
                 success = true;
             } catch ( const std::invalid_argument& ) {
-                const str FILTER = uppercase ( TARGET );
+                const std::string FILTER = uppercase ( TARGET );
                 if ( FILTER == "ALL" ) {
                     j.clear();
 
@@ -422,9 +435,9 @@ int main (
                 return 1;
             }
 
-            bool is_task_found = false;
-            int  get_json_id;
-            str  get_json_desc;
+            bool        is_task_found = false;
+            int         get_json_id;
+            std::string get_json_desc;
             for ( auto& task : j ) {
                 if ( ! (
                        task.is_object() && task.contains ( "id" )
@@ -432,7 +445,7 @@ int main (
                     continue;
                 }
                 get_json_id   = task [ "id" ].get<int>();
-                get_json_desc = task [ "description" ].get<str>();
+                get_json_desc = task [ "description" ].get<std::string>();
 
                 Task t ( "" );
                 task [ "status" ]      = "IN-PROGRESS";
@@ -477,9 +490,9 @@ int main (
                     return 1;
                 }
 
-                int  get_json_id;
-                str  get_json_desc;
-                bool is_task_found = false;
+                int         get_json_id;
+                std::string get_json_desc;
+                bool        is_task_found = false;
                 for ( auto& task : j ) {
                     if ( ! (
                            task.is_object() && task.contains ( "id" )
@@ -487,7 +500,7 @@ int main (
                         continue;
                     }
                     get_json_id   = task [ "id" ].get<int>();
-                    get_json_desc = task [ "description" ].get<str>();
+                    get_json_desc = task [ "description" ].get<std::string>();
 
                     Task t ( "" );
                     task [ "status" ]      = "DONE";
@@ -549,7 +562,7 @@ int main (
                 return 0;
 
             } else if ( ( i + 1 ) < argc && argc <= 3 ) {
-                const str FILTER = uppercase ( argv [ i + 1 ] );
+                const std::string FILTER = uppercase ( argv [ i + 1 ] );
                 if ( FILTER == "-L" || FILTER == "--LONG" ) {
                     bool is_task_found = false;
                     for ( auto& task : j ) {
@@ -662,7 +675,7 @@ int main (
         } else if ( use_flag_help ) {
             bool use_flag_extra_long { false };
             for ( int j = 2; j < argc; ++j ) {
-                const str FLAG = uppercase ( argv [ j ] );
+                const std::string FLAG = uppercase ( argv [ j ] );
                 if ( FLAG == "-L" || FLAG == "--LONG" )
                     use_flag_extra_long = true;
             }
@@ -706,8 +719,8 @@ int main (
                 return 1;
             }
 
-            const str DESCRIPTION = argv [ i + 1 ];
-            Task      task ( DESCRIPTION );
+            const std::string DESCRIPTION = argv [ i + 1 ];
+            Task              task ( DESCRIPTION );
             std::cout << "[*] CREATED NEW TASK\n";
             std::cout << "[+] ID=" << task.id
                       << "  DESCRIPTION=" << task.description << '\n';
