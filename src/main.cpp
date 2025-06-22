@@ -24,7 +24,7 @@ std::string getDataPath()
 {
     fs::path dataPath;
 #ifdef _WIN32
-    if ( auto appdata { getenv ( "APPDATA" ) }; appdata != nullptr )
+    if ( auto appdata { getenv ( "LOCALAPPDATA" ) }; appdata != nullptr )
         dataPath = appdata;
 #else
     if ( auto home { getenv ( "HOME" ) }; home != nullptr )
